@@ -35,7 +35,7 @@ class PathInfo(DictLikeDataclass):
     via_nodes: list[Node] = None  # список id узлов (Node),
     via_edges: list[Edge] = None  # список id ребер (Edge)
     cfg_steps: int = 0  # Число пройденных узлов CFG, без учёта их содержимого = число пройденных рёбер
-    # Эти больше не экспортировать <<
+    # Эти больше не экспортировать ^^
 
     ast_actions: int = 0  # Число узлов c непустым AST node на пути
     transparent_actions: int = 0  # Число узлов с заданным AST node, которые считаются "прозрачными" для студента в том смысле, что он с ними не взаимодействует (вариант "может нажать, а может и не нажать" пока не рассматривается)
@@ -54,11 +54,6 @@ class PathInfo(DictLikeDataclass):
         if not self.id:
             self.id=idgen.next('path')
 
-    def add_step(self, edge: Edge, target_node: Node) -> bool:
-        """ returns False if the step cannot be added (no cycles allowed) """
-        # validate args compatibility
-        assert edge.dst == target_node.id
-
         if not self.via_nodes or not self.via_edges:
             # init chains
             self.via_nodes = []
@@ -66,11 +61,22 @@ class PathInfo(DictLikeDataclass):
             assert self.from_
             self.via_nodes.append(self.from_)
 
+    def is_loop(self) -> bool:
+        """ True, если заканчивается на тот же узел, что и начинается.
+        Это допустимо, но дальнейшее наращивание пути-цикла невозможно. """
+        return self.from_ == self.to_
+
+    def add_step(self, edge: Edge, target_node: Node) -> bool:
+        """ returns False if the step cannot be added (no cycles allowed) """
+        # validate args compatibility
+        assert edge.dst == target_node.id
+
         # check connectivity with current chain
         # check if the next edge leaves previous node
         assert edge.src == self.via_nodes[-1].id
 
-        if target_node in self.via_nodes:
+        if target_node in self.via_nodes and target_node is not self.from_:
+            # Do not allow loops.
             return False
 
         # register new step in chains
@@ -124,6 +130,10 @@ class PathInfo(DictLikeDataclass):
         if path1.to_ != path2.from_:
             return None
         
+        if path1.is_loop() or path2.is_loop():
+            # Дальнейшее наращивание циклических путей невозможно.
+            return None
+
         # Инициализируем via_nodes и via_edges для path1, если они не инициализированы
         if not path1.via_nodes or not path1.via_edges:
             if path1.from_:
@@ -145,16 +155,18 @@ class PathInfo(DictLikeDataclass):
         else:
             path2_nodes = path2.via_nodes
             path2_edges = path2.via_edges
-        
+
         # Объединяем узлы: path1_nodes + path2_nodes[1:] (убираем дубликат в точке соединения)
         # path1_nodes заканчивается на path1.to_, path2_nodes начинается с path2.from_
         # Так как path1.to_ == path2.from_, мы убираем дубликат
         combined_nodes = path1_nodes + path2_nodes[1:]
         combined_edges = path1_edges + path2_edges
-        
+
         # Проверяем на циклы: не должно быть повторяющихся узлов (проверяем по ID)
         node_ids = [node.id for node in combined_nodes]
-        if len(node_ids) != len(set(node_ids)):
+        new_is_loop = bool(path1.from_ == path2.to_)
+        if len(node_ids) - new_is_loop != len(set(node_ids)):
+            # (!) `-`: Последний узел может равняться первому
             return None
         
         # Создаём новый PathInfo
@@ -193,10 +205,13 @@ class PathInfo(DictLikeDataclass):
 
 
     def add_effects(self, *other_effects: Effects):
-        #     """ Добавить непустые эффекты (из последовательных узлов/рёбер)  """
+        """ Добавить непустые эффекты (из последовательных узлов/рёбер) """
         for effect in other_effects:
             if effect:
-                self.effects.append(effect)
+                if not self.effects or not (merged := Effects.merge(self.effects[-1], effect)):
+                    self.effects.append(effect)
+                else:
+                    self.effects[-1] = merged
 
     def renew_first_middle_action(self):
         """ Обновить информацию о первом непрозрачном действии, условии и смене фрейма стека на пути. """
@@ -205,7 +220,7 @@ class PathInfo(DictLikeDataclass):
                 self.firstMiddleAction = node
                 if node.is_condition():
                     self.firstMiddleCondition = node
-                break
+                    break
 
         for edge in self.via_edges[:-1]:
             if edge.effects:
