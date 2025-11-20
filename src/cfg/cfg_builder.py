@@ -41,18 +41,19 @@ class CFGBuilder:
             return DEFAULT_APPEARANCE_PROFILE.get_appearance_for_kind_chain(construct.kind)
         if action:
             return DEFAULT_APPEARANCE_PROFILE.get_appearance_for_kind_chain(action.kind)
-        return AppearanceType.NONE
+        # by default, make it mandatory for all unknown nodes
+        return AppearanceType.MANDATORY
 
     def _apply_node_appearance(
         self,
-        node_or_pair: Node | tuple[Node, Node] | None,
+        node_or_pair: Node | tuple[Node, Node] | list[Node] | None,
         *,
         construct: ConstructSpec | None = None,
         action: ActionSpec | None = None,
     ) -> None:
         if node_or_pair is None:
             return
-        if isinstance(node_or_pair, tuple):
+        if isinstance(node_or_pair, (tuple, list)):
             for node in node_or_pair:
                 self._apply_node_appearance(node, construct=construct, action=action)
             return
