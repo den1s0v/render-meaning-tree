@@ -105,6 +105,10 @@ class Node(FactSerializable):
     # # If node wraps a subgraph, keep reference
     # subgraph: Optional["CFG"] = None
 
+    def describe(self) -> str:
+        ast_id = self.metadata.wrapped_ast.ast_node.get('id') if self.metadata.wrapped_ast else None
+        return f'Node( id={self.id}, kind={self.kind.value}, role_in_construct={self.role_in_construct}, action={self.metadata.abstract_action.role if self.metadata.abstract_action else None}, ast_id={ast_id!r} )'
+
     def is_mandatory(self) -> bool:
         return self.appearance == AppearanceType.MANDATORY
 
