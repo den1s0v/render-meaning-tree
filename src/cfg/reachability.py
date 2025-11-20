@@ -235,6 +235,12 @@ class PathInfo(DictLikeDataclass):
         Если передан node, используется инкрементальная логика.
         В противном случае значение вычисляется по накопленным метрикам.
         """
+        start_node = self.via_nodes[0] if self.via_nodes else self.from_
+        if not start_node or not start_node.is_mandatory():
+            # Стартовый узел должен быть непрозрачным для любого определённого состояния.
+            self.is_direct = None
+            return
+
         if target_node is not None:
             if target_node.is_mandatory():
                 if self.is_direct is None:
@@ -244,7 +250,7 @@ class PathInfo(DictLikeDataclass):
             return
 
         opaque_count = self.opaque_actions or 0
-        if opaque_count == 0 or not self.via_nodes[0].is_mandatory():
+        if opaque_count == 0:
             self.is_direct = None
         elif opaque_count == 1 and self.via_nodes[-1].is_mandatory():
             self.is_direct = True
