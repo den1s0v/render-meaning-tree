@@ -96,6 +96,7 @@ class Node(FactSerializable):
     id: str
     role_in_construct: str  # for internal usage
     kind: NodeKind
+    appearance: AppearanceType = AppearanceType.NONE
     cfg: 'CFG | None' = None
     effects: list[Effects] = field(default_factory=list)
     metadata: Metadata = field(default_factory=Metadata)
@@ -103,28 +104,6 @@ class Node(FactSerializable):
     direct_in_paths: list['PathInfo'] = field(default_factory=list, repr=False)
     # # If node wraps a subgraph, keep reference
     # subgraph: Optional["CFG"] = None
-
-    @property
-    def appearance(self) -> AppearanceType:
-        if not self.metadata.wrapped_ast:
-            # Пустые и промежуточные действия
-            return AppearanceType.NONE
-
-        if self.kind == NodeKind.ATOM:
-            # Действие-атом
-            return AppearanceType.MANDATORY
-
-        if self.metadata.call_count > 0:
-            # Начало либо конец вызова функции
-            # TODO: в APPEARANCE_PROFILE
-            return AppearanceType.MANDATORY
-
-        if self.metadata.abstract_action:
-            kind = self.metadata.abstract_action.kind
-            return DEFAULT_APPEARANCE_PROFILE.get_appearance_for_kind_chain(kind)
-
-        # keep intermediate nodes hidden.
-        return AppearanceType.NONE
 
     def is_mandatory(self) -> bool:
         return self.appearance == AppearanceType.MANDATORY
