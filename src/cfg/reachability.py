@@ -215,14 +215,14 @@ class PathInfo(DictLikeDataclass):
 
     def renew_first_middle_action(self):
         """ Обновить информацию о первом непрозрачном действии, условии и смене фрейма стека на пути. """
-        for node in self.via_nodes[:-1]:
+        for node in self.via_nodes[1:-1]:
             if node.is_mandatory():
                 self.firstMiddleAction = node
                 if node.is_condition():
                     self.firstMiddleCondition = node
                     break
 
-        for edge in self.via_edges[:-1]:
+        for edge in self.via_edges[1:-1]:
             if edge.effects:
                 for effect in edge.effects:
                     if effect.call_stack in (CallStackAction.ADD_FRAME, CallStackAction.DROP_FRAME):
@@ -252,7 +252,7 @@ class PathInfo(DictLikeDataclass):
         opaque_count = self.opaque_actions or 0
         if opaque_count == 0:
             self.is_direct = None
-        elif opaque_count == 1 and self.via_nodes[-1].is_mandatory():
+        elif opaque_count == 1 and len(self.via_nodes) >= 2 and self.via_nodes[0].is_mandatory() and self.via_nodes[-1].is_mandatory():
             self.is_direct = True
         else:
             self.is_direct = False
