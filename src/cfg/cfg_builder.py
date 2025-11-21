@@ -57,7 +57,12 @@ class CFGBuilder:
             for node in node_or_pair:
                 self._apply_node_appearance(node, construct=construct, action=action)
             return
-        appearance = self._determine_node_appearance(construct=construct, action=action)
+
+        if not node_or_pair.metadata.wrapped_ast:
+            # Пустые и промежуточные действия
+            appearance = AppearanceType.NONE
+        else:
+            appearance = self._determine_node_appearance(construct=construct, action=action)
         node_or_pair.appearance = appearance
 
     def _create_simple_cfg(self, name: str) -> CFG:
