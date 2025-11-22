@@ -20,7 +20,7 @@ class PathInfo(DictLikeDataclass):
     """
     from_: Node  # узел CFG
     to_: Node = None  # узел CFG
-    is_direct: bool = None  # True, если путь между парой непрозрачных действий прямой (и может быть корректным шагом). False: путь непрямой/опосредованный (длиннее прямого). None: путь ещё не построен.
+    is_direct: bool | None = None  # True, если путь между парой непрозрачных действий прямой (и может быть корректным шагом). False: путь непрямой/опосредованный (длиннее прямого). None: путь ещё не построен.
 
     # properties similar to Edge
     id: str = None
@@ -182,8 +182,8 @@ class PathInfo(DictLikeDataclass):
         new_path.cfg_steps = path1.cfg_steps + path2.cfg_steps
         new_path.ast_actions = path1.ast_actions + path2.ast_actions
         new_path.transparent_actions = path1.transparent_actions + path2.transparent_actions
-        new_path.opaque_actions = path1.opaque_actions + path2.opaque_actions
-        new_path.conditions = path1.conditions + path2.conditions
+        # new_path.opaque_actions = path1.opaque_actions + path2.opaque_actions
+        # new_path.conditions = path1.conditions + path2.conditions
         new_path.frame_changes = path1.frame_changes + path2.frame_changes
         new_path.frames_added = path1.frames_added + path2.frames_added
         new_path.frames_dropped = path1.frames_dropped + path2.frames_dropped
@@ -215,14 +215,23 @@ class PathInfo(DictLikeDataclass):
 
     def renew_first_middle_action(self):
         """ Обновить информацию о первом непрозрачном действии, условии и смене фрейма стека на пути. """
-        for node in self.via_nodes[1:-1]:
+
+        self.opaque_actions = 0
+        self.conditions = 0
+        for node in self.via_nodes[1:]:  # все, кроме первого
+            if node.is_mandatory():
+                self.opaque_actions += 1
+                if node.is_condition():
+                    self.conditions += 1
+
+        for node in self.via_nodes[1:-1]:  # все, кроме первого и последнего
             if node.is_mandatory():
                 self.firstMiddleAction = node
                 if node.is_condition():
                     self.firstMiddleCondition = node
                     break
 
-        for edge in self.via_edges[1:-1]:
+        for edge in self.via_edges:  # все.
             if edge.effects:
                 for effect in edge.effects:
                     if effect.call_stack in (CallStackAction.ADD_FRAME, CallStackAction.DROP_FRAME):
@@ -235,11 +244,11 @@ class PathInfo(DictLikeDataclass):
         Если передан node, используется инкрементальная логика.
         В противном случае значение вычисляется по накопленным метрикам.
         """
-        start_node = self.via_nodes[0] if self.via_nodes else self.from_
-        if not start_node or not start_node.is_mandatory():
-            # Стартовый узел должен быть непрозрачным для любого определённого состояния.
-            self.is_direct = None
-            return
+        # start_node = self.via_nodes[0] if self.via_nodes else self.from_
+        # if not start_node or not start_node.is_mandatory():
+        #     # Стартовый узел должен быть непрозрачным для любого определённого состояния.
+        #     self.is_direct = None
+        #     return
 
         if target_node is not None:
             if target_node.is_mandatory():
